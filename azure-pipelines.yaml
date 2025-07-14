@@ -5,11 +5,17 @@ pool:
   vmImage: "ubuntu-latest"
 
 variables:
-  awsRegion: "us-east-1"
-  ecrRepository: "638067550830.dkr.ecr.us-east-1.amazonaws.com/2048"
-  clusterName: "eks-demo-cluster"
-  helmRelease: "game-2048"
-  helmChartPath: "./helm/2048"
+  - group: aws-creds
+  - name: awsRegion
+    value: "us-east-1"
+  - name: ecrRepository
+    value: "638067550830.dkr.ecr.us-east-1.amazonaws.com/2048"
+  - name: clusterName
+    value: "eks-demo-cluster"
+  - name: helmRelease
+    value: "game-2048"
+  - name: helmChartPath
+    value: "./helm/2048"
 
 stages:
   - stage: Build
