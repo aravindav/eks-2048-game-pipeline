@@ -61,5 +61,5 @@ stages:
               AWS_SECRET_ACCESS_KEY: $(AWS-SECRET-ACCESS-KEY)
               AWS_DEFAULT_REGION: $(AWS-DEFAULT-REGION)
 
-          - publish: $(Build.BuildId)
-            artifact: imageTag
+          # - publish: $(Build.BuildId)
+          #   artifact: imageTag
