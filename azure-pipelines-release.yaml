@@ -27,9 +27,6 @@ stages:
     jobs:
       - job: DeployToEKS
         steps:
-          - download: buildPipeline
-            artifact: imageTag
-
           - checkout: self
 
           - script: |
