@@ -16,7 +16,7 @@ variables:
   - name: ecrRepository
     value: "638067550830.dkr.ecr.us-east-1.amazonaws.com/2048"
   - name: clusterName
-    value: "eks-demo-cluster"
+    value: "my-eks-cluster"
   - name: helmRelease
     value: "game-2048"
   - name: helmChartPath
