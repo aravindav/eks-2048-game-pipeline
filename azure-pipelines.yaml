@@ -26,25 +26,29 @@ stages:
 
           - script: |
               set -e
-              echo "✅ Checking AWS environment variables..."
+              echo " Checking AWS environment variables..."
               echo "AWS_ACCESS_KEY_ID is $AWS_ACCESS_KEY_ID"
               echo "AWS_DEFAULT_REGION is $AWS_DEFAULT_REGION"
 
               echo "🔐 Logging in to ECR..."
               aws ecr get-login-password --region $(awsRegion) | docker login --username AWS --password-stdin $(ecrRepository)
 
-              echo "🐳 Docker info after login:"
+              echo " Docker info after login:"
               docker info
 
-              echo "⚙️ Building Docker image..."
+              echo " Building Docker image..."
               docker build -t game-2048:$(Build.BuildId) .
 
-              echo "🏷️ Tagging Docker image..."
+              echo "Tagging Docker image..."
               docker tag game-2048:$(Build.BuildId) $(ecrRepository):$(Build.BuildId)
 
-              echo "🚀 Pushing Docker image to ECR..."
+              echo "Pushing Docker image to ECR..."
               docker push $(ecrRepository):$(Build.BuildId)
             displayName: "Build & Push Docker Image"
+            env:
+              AWS_ACCESS_KEY_ID: $(AWS-ACCESS-KEY-ID)
+              AWS_SECRET_ACCESS_KEY: $(AWS-SECRET-ACCESS-KEY)
+              AWS_DEFAULT_REGION: $(AWS-DEFAULT-REGION)
 
           - script: |
               echo "🔎 Scanning Docker image..."
@@ -67,6 +71,7 @@ stages:
               helm upgrade --install $(helmRelease) $(helmChartPath) \
                 --set image.repository=$(ecrRepository) \
                 --set image.tag=$(Build.BuildId) \
+                --set image.pullPolicy=Always \
                 --namespace default
             displayName: "Deploy to EKS with Helm"
 
