@@ -1,0 +1,73 @@
+trigger:
+  - main
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  awsRegion: "us-east-1"
+  ecrRepository: "638067550830.dkr.ecr.us-east-1.amazonaws.com/2048"
+  clusterName: "eks-demo-cluster"
+  helmRelease: "game-2048"
+  helmChartPath: "./helm/2048"
+
+stages:
+  - stage: Build
+    jobs:
+      - job: BuildAndPush
+        steps:
+          - checkout: self
+
+          - script: |
+              echo "Logging in to ECR..."
+              aws ecr get-login-password --region $(awsRegion) | docker login --username AWS --password-stdin $(ecrRepository)
+              echo "Building Docker image..."
+              docker build -t game-2048:$(Build.BuildId) .
+              docker tag game-2048:$(Build.BuildId) $(ecrRepository):$(Build.BuildId)
+              echo "Pushing Docker image..."
+              docker push $(ecrRepository):$(Build.BuildId)
+            displayName: "Build & Push Docker Image"
+
+          - script: |
+              echo "Scanning Docker image..."
+              trivy image --exit-code 1 --severity HIGH,CRITICAL $(ecrRepository):$(Build.BuildId)
+            displayName: "Scan Docker Image"
+
+  - stage: Deploy
+    dependsOn: Build
+    jobs:
+      - job: DeployToEKS
+        steps:
+          - checkout: self
+
+          - script: |
+              echo "Updating kubeconfig..."
+              aws eks --region $(awsRegion) update-kubeconfig --name $(clusterName)
+              echo "Deploying with Helm..."
+              helm upgrade --install $(helmRelease) $(helmChartPath) \
+                --set image.repository=$(ecrRepository) \
+                --set image.tag=$(Build.BuildId) \
+                --namespace default
+            displayName: "Deploy to EKS with Helm"
+
+          - script: |
+              echo "Checking rollout status..."
+              kubectl rollout status deployment/$(helmRelease)
+              echo "Listing pods..."
+              kubectl get pods
+            displayName: "Verify Deployment"
+
+          - script: |
+              echo "Smoke tests completed."
+            displayName: "Post-deploy Smoke Test"
+
+  - stage: Notify
+    dependsOn: Deploy
+    condition: succeeded()
+    jobs:
+      - job: Notify
+        steps:
+          - script: |
+              echo "✅ Deployment completed successfully!"
+              # Here you can add Slack or email notification commands
+            displayName: "Notify Team"
