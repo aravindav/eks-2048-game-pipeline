@@ -25,17 +25,29 @@ stages:
           - checkout: self
 
           - script: |
-              echo "Logging in to ECR..."
+              set -e
+              echo "✅ Checking AWS environment variables..."
+              echo "AWS_ACCESS_KEY_ID is $AWS_ACCESS_KEY_ID"
+              echo "AWS_DEFAULT_REGION is $AWS_DEFAULT_REGION"
+
+              echo "🔐 Logging in to ECR..."
               aws ecr get-login-password --region $(awsRegion) | docker login --username AWS --password-stdin $(ecrRepository)
-              echo "Building Docker image..."
+
+              echo "🐳 Docker info after login:"
+              docker info
+
+              echo "⚙️ Building Docker image..."
               docker build -t game-2048:$(Build.BuildId) .
+
+              echo "🏷️ Tagging Docker image..."
               docker tag game-2048:$(Build.BuildId) $(ecrRepository):$(Build.BuildId)
-              echo "Pushing Docker image..."
+
+              echo "🚀 Pushing Docker image to ECR..."
               docker push $(ecrRepository):$(Build.BuildId)
             displayName: "Build & Push Docker Image"
 
           - script: |
-              echo "Scanning Docker image..."
+              echo "🔎 Scanning Docker image..."
               trivy image --exit-code 1 --severity HIGH,CRITICAL $(ecrRepository):$(Build.BuildId)
             displayName: "Scan Docker Image"
 
@@ -47,9 +59,11 @@ stages:
           - checkout: self
 
           - script: |
-              echo "Updating kubeconfig..."
+              set -e
+              echo "🔄 Updating kubeconfig..."
               aws eks --region $(awsRegion) update-kubeconfig --name $(clusterName)
-              echo "Deploying with Helm..."
+
+              echo "🚢 Deploying with Helm..."
               helm upgrade --install $(helmRelease) $(helmChartPath) \
                 --set image.repository=$(ecrRepository) \
                 --set image.tag=$(Build.BuildId) \
@@ -57,14 +71,15 @@ stages:
             displayName: "Deploy to EKS with Helm"
 
           - script: |
-              echo "Checking rollout status..."
+              echo "✅ Checking rollout status..."
               kubectl rollout status deployment/$(helmRelease)
-              echo "Listing pods..."
+
+              echo "🔎 Listing pods..."
               kubectl get pods
             displayName: "Verify Deployment"
 
           - script: |
-              echo "Smoke tests completed."
+              echo "✅ Smoke tests completed successfully."
             displayName: "Post-deploy Smoke Test"
 
   - stage: Notify
@@ -74,6 +89,6 @@ stages:
       - job: Notify
         steps:
           - script: |
-              echo "✅ Deployment completed successfully!"
-              # Here you can add Slack or email notification commands
+              echo "🎉 ✅ Deployment completed successfully! You can now access your 2048 app via the LoadBalancer."
+              # Example: here you can add Slack or email notifications.
             displayName: "Notify Team"
