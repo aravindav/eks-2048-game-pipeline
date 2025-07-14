@@ -3,7 +3,7 @@ trigger: none
 resources:
   pipelines:
     - pipeline: buildPipeline
-      source: aravindav.eks-2048-game-pipeline
+      source: aravindav.eks-2048-game-pipeline-build
       trigger: true
 
 pool:
