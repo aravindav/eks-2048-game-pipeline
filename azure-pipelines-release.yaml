@@ -16,7 +16,7 @@ variables:
   - name: ecrRepository
     value: "638067550830.dkr.ecr.us-east-1.amazonaws.com/2048"
   - name: clusterName
-    value: "my-eks-cluster" # ✅ your actual cluster
+    value: "my-eks-cluster" # ✅ Updated to your correct EKS cluster name
   - name: helmRelease
     value: "game-2048"
   - name: helmChartPath
@@ -45,15 +45,13 @@ stages:
                 --set image.tag=$(Build.BuildId) \
                 --set image.pullPolicy=Always \
                 --namespace default
-            displayName: "Deploy to EKS with Helm"
 
-          - script: |
               echo "✅ Checking rollout status..."
               kubectl rollout status deployment/$(helmRelease)
 
               echo "🔎 Listing pods..."
               kubectl get pods
-            displayName: "Verify Deployment"
+            displayName: "Deploy to EKS with Helm"
 
   - stage: Notify
     dependsOn: Deploy
@@ -62,5 +60,5 @@ stages:
       - job: Notify
         steps:
           - script: |
-              echo "🎉 ✅ Deployment completed successfully! Access your 2048 app via LoadBalancer."
+              echo "🎉 ✅ Deployment completed successfully! Access your 2048 app via the LoadBalancer."
             displayName: "Notify Team"
