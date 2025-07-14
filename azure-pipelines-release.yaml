@@ -1,0 +1,68 @@
+trigger: none
+
+resources:
+  pipelines:
+    - pipeline: buildPipeline
+      source: aravindav.eks-2048-game-pipeline
+      trigger: true
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  - group: aws-creds
+  - name: awsRegion
+    value: "us-east-1"
+  - name: ecrRepository
+    value: "638067550830.dkr.ecr.us-east-1.amazonaws.com/2048"
+  - name: clusterName
+    value: "eks-demo-cluster"
+  - name: helmRelease
+    value: "game-2048"
+  - name: helmChartPath
+    value: "./helm/2048"
+
+stages:
+  - stage: Deploy
+    jobs:
+      - job: DeployToEKS
+        steps:
+          - download: buildPipeline
+            artifact: imageTag
+
+          - checkout: self
+
+          - script: |
+              set -e
+              echo "🔄 Updating kubeconfig..."
+              aws eks --region $(awsRegion) update-kubeconfig --name $(clusterName)
+
+              echo "🚢 Deploying with Helm..."
+              helm upgrade --install $(helmRelease) $(helmChartPath) \
+                --set image.repository=$(ecrRepository) \
+                --set image.tag=$(Build.BuildId) \
+                --set image.pullPolicy=Always \
+                --namespace default
+            displayName: "Deploy to EKS with Helm"
+            env:
+              AWS_ACCESS_KEY_ID: $(AWS-ACCESS-KEY-ID)
+              AWS_SECRET_ACCESS_KEY: $(AWS-SECRET-ACCESS-KEY)
+              AWS_DEFAULT_REGION: $(AWS-DEFAULT-REGION)
+
+          - script: |
+              echo "✅ Checking rollout status..."
+              kubectl rollout status deployment/$(helmRelease)
+
+              echo "🔎 Listing pods..."
+              kubectl get pods
+            displayName: "Verify Deployment"
+
+  - stage: Notify
+    dependsOn: Deploy
+    condition: succeeded()
+    jobs:
+      - job: Notify
+        steps:
+          - script: |
+              echo "🎉 ✅ Deployment completed successfully! Access your 2048 app via the LoadBalancer."
+            displayName: "Notify Team"
