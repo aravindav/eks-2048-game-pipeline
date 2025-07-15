@@ -1,9 +1,10 @@
+# azure-pipelines-release.yaml
 trigger: none
 
 resources:
   pipelines:
     - pipeline: buildPipeline
-      source: aravindav.eks-2048-game-pipeline-build
+      source: aravindav.eks-2048-game-pipeline-build # Update with your CI pipeline name
       trigger: true
 
 pool:
@@ -26,6 +27,8 @@ stages:
   - stage: Deploy
     jobs:
       - job: DeployToEKS
+        variables:
+          imageTag: $[ resources.pipeline.buildPipeline.outputs['setTag.imageTag'] ]
         steps:
           - checkout: self
 
@@ -42,22 +45,18 @@ stages:
               echo "🔄 Updating kubeconfig..."
               aws eks --region $(awsRegion) update-kubeconfig --name $(clusterName)
 
-              echo "🔎 Testing kubectl connectivity..."
-              kubectl get svc
-
               echo "🚢 Deploying with Helm..."
               helm upgrade --install $(helmRelease) $(helmChartPath) \
                 --set image.repository=$(ecrRepository) \
-                --set image.tag=$(Build.BuildId) \
+                --set image.tag=$(imageTag) \
                 --set image.pullPolicy=Always \
                 --namespace default
+            displayName: "Deploy to EKS with Helm"
 
+          - script: |
               echo "✅ Checking rollout status..."
               kubectl rollout status deployment/$(helmRelease)
-
-              echo "🔎 Listing pods..."
-              kubectl get pods
-            displayName: "Deploy to EKS with Helm"
+            displayName: "Verify Deployment"
 
   - stage: Notify
     dependsOn: Deploy
@@ -66,5 +65,5 @@ stages:
       - job: Notify
         steps:
           - script: |
-              echo "🎉 ✅ Deployment completed successfully! Access your 2048 app via the LoadBalancer."
+              echo "🎉 ✅ Deployment completed successfully!"
             displayName: "Notify Team"
