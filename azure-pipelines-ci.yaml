@@ -62,9 +62,10 @@ stages:
               AWS_DEFAULT_REGION: $(AWS-DEFAULT-REGION)
 
           - script: |
-              echo "##vso[task.setvariable variable=imageTag;isOutput=true]$(Build.BuildId)"
-            name: setTag
-            displayName: "Set Image Tag Variable for Release"
+              echo "$(Build.BuildId)" > imageTag.txt
+              echo "✅ Image tag $(Build.BuildId) written to imageTag.txt"
+            displayName: "Write Image Tag to File"
 
-          # - publish: $(Build.BuildId)
-          #   artifact: imageTag
+          - publish: imageTag.txt
+            artifact: imageTag
+            displayName: "Publish Image Tag Artifact"
