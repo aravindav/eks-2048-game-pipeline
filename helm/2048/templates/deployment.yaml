@@ -1,16 +1,16 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: { { include "game-2048.fullname" . } }
+  name: {{ include "game-2048.fullname" . }}
 spec:
-  replicas: { { .Values.replicaCount } }
+  replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      app: { { include "game-2048.name" . } }
+      app: {{ include "game-2048.name" . }}
   template:
     metadata:
       labels:
-        app: { { include "game-2048.name" . } }
+        app: {{ include "game-2048.name" . }}
     spec:
       containers:
         - name: game-2048
