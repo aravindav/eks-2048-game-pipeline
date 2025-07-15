@@ -3,7 +3,7 @@ trigger: none
 resources:
   pipelines:
     - pipeline: buildPipeline
-      source: aravindav.eks-2048-game-pipeline-build # Your CI pipeline name
+      source: aravindav.eks-2048-game-pipeline-build
       trigger: true
 
 pool:
@@ -33,17 +33,41 @@ stages:
           - checkout: self
 
           - script: |
-              echo "🔎 Reading image tag from artifact..."
-              IMAGE_TAG=$(cat $(Pipeline.Workspace)/buildPipeline/imageTag/imageTag.txt)
-              echo "✅ Image tag: $IMAGE_TAG"
+              echo "Exporting AWS credentials..."
+              export AWS_ACCESS_KEY_ID=$(AWS-ACCESS-KEY-ID)
+              export AWS_SECRET_ACCESS_KEY=$(AWS-SECRET-ACCESS-KEY)
+              export AWS_DEFAULT_REGION=$(AWS-DEFAULT-REGION)
+
+              echo "✅ Verifying AWS identity..."
+              aws sts get-caller-identity
 
               echo "🔄 Updating kubeconfig..."
               aws eks --region $(awsRegion) update-kubeconfig --name $(clusterName)
 
-              echo "🚢 Deploying with Helm..."
+              echo "🔎 Testing kubectl connectivity..."
+              kubectl get svc
+
+              echo "➕ Adding Prometheus community repo..."
+              helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+              helm repo update
+
+              echo "🚀 Installing Prometheus & Grafana..."
+              helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+                --namespace monitoring --create-namespace \
+                --set grafana.service.type=LoadBalancer \
+                --set prometheus.service.type=LoadBalancer
+            displayName: "Install Prometheus & Grafana with Helm"
+            env:
+              AWS_ACCESS_KEY_ID: $(AWS-ACCESS-KEY-ID)
+              AWS_SECRET_ACCESS_KEY: $(AWS-SECRET-ACCESS-KEY)
+              AWS_DEFAULT_REGION: $(AWS-DEFAULT-REGION)
+
+          - script: |
+              echo "🚢 Deploying app with Helm..."
               helm upgrade --install $(helmRelease) $(helmChartPath) \
                 --set image.repository=$(ecrRepository) \
-                --set image.tag=$IMAGE_TAG \
+                --set image.tag=$(imageTag) \
+                --set image.pullPolicy=Always \
                 --namespace default
             displayName: "Deploy to EKS with Helm"
             env:
@@ -53,10 +77,10 @@ stages:
 
           - script: |
               echo "✅ Checking rollout status..."
-              kubectl rollout status deployment/$(helmRelease)
+              kubectl rollout status deployment/$(helmRelease) --namespace default
 
               echo "🔎 Listing pods..."
-              kubectl get pods
+              kubectl get pods -n default
             displayName: "Verify Deployment"
             env:
               AWS_ACCESS_KEY_ID: $(AWS-ACCESS-KEY-ID)
@@ -70,5 +94,5 @@ stages:
       - job: Notify
         steps:
           - script: |
-              echo "🎉 ✅ Deployment completed successfully! Access your app via the LoadBalancer URL."
+              echo "🎉 ✅ Deployment completed successfully! Access your app and monitoring dashboards."
             displayName: "Notify Team"
