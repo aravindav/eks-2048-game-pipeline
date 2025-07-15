@@ -48,7 +48,7 @@ stages:
               echo "🚢 Deploying with Helm..."
               helm upgrade --install $(helmRelease) $(helmChartPath) \
                 --set image.repository=$(ecrRepository) \
-                --set image.tag=205 \
+                --set image.tag=$(Build.BuildId) \
                 --set image.pullPolicy=Always \
                 --namespace default
 
